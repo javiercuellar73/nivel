@@ -2,347 +2,182 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nivel PRO</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nivel PRO v1.4</title>
 <style>
-
-body{
-margin:0;
-background:#1c1c1c;
-font-family:Segoe UI,Arial;
-color:white;
-text-align:center;
-overflow:hidden;
-}
-
-#version{
-position:fixed;
-bottom:6px;
-right:10px;
-font-size:12px;
-opacity:.5;
-}
-
-#modeLabel{
-margin-top:8px;
-font-size:14px;
-opacity:.8;
-}
-
-#controls{
-padding:8px;
-}
-
-button{
-padding:6px 12px;
-margin:3px;
-border:none;
-border-radius:6px;
-background:#333;
-color:white;
-font-size:13px;
-}
-
-button:hover{background:#555;}
-
-.level{
-width:90%;
-max-width:520px;
-height:90px;
-background:linear-gradient(#cfcf00,#ffff33,#cfcf00);
-border:5px solid #111;
-border-radius:10px;
-margin:auto;
-position:relative;
-}
-
-.bubble{
-width:52px;
-height:52px;
-border-radius:50%;
-background:white;
-position:absolute;
-top:18px;
-left:calc(50% - 26px);
-}
-
-.value{
-font-size:3rem;
-margin-top:10px;
-font-family:monospace;
-}
-
-.sub{
-font-size:1rem;
-opacity:.8;
-}
-
-#circle{
-width:260px;
-height:260px;
-border-radius:50%;
-border:6px solid #111;
-background:#333;
-margin:auto;
-display:none;
-position:relative;
-}
-
-#dot{
-width:28px;
-height:28px;
-background:white;
-border-radius:50%;
-position:absolute;
-top:116px;
-left:116px;
-}
-
-#camera{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-object-fit:cover;
-display:none;
-}
-
-#line{
-position:fixed;
-top:50%;
-left:0;
-width:100%;
-height:4px;
-background:red;
-display:none;
-}
-
+    body { margin:0; background:#1c1c1c; font-family:Segoe UI,Arial; color:white; text-align:center; overflow:hidden; height: 100vh; }
+    #version { position:fixed; bottom:6px; right:10px; font-size:12px; opacity:.5; }
+    #modeLabel { margin-top:15px; font-size:16px; font-weight: bold; color: #ffff33; }
+    #controls { padding:10px; position: relative; z-index: 10; }
+    button { padding:10px 20px; margin:5px; border:none; border-radius:6px; background:#333; color:white; font-size:14px; cursor: pointer; }
+    .level { width:90%; max-width:520px; height:90px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:5px solid #111; border-radius:10px; margin:20px auto; position:relative; }
+    .bubble { width:52px; height:52px; border-radius:50%; background:white; position:absolute; top:18px; left:calc(50% - 26px); transition: left 0.05s linear; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2); }
+    .value { font-size:4rem; margin-top:10px; font-family:monospace; font-weight: bold; }
+    .sub { font-size:1.2rem; opacity:.8; margin: 5px; }
+    #circle { width:260px; height:260px; border-radius:50%; border:6px solid #111; background:#333; margin:20px auto; display:none; position:relative; }
+    #dot { width:35px; height:35px; background:white; border-radius:50%; position:absolute; top:112.5px; left:112.5px; transition: all 0.05s linear; }
+    #camera { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; z-index:0; }
+    #line { position:fixed; top:50%; left:0; width:100%; height:4px; background:red; display:none; z-index:1; }
+    #ios-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
 </style>
 </head>
-
 <body>
 
+<div id="ios-overlay"><button onclick="requestAccess()">INICIAR SENSORES</button></div>
 <video id="camera" autoplay playsinline></video>
 <div id="line"></div>
 
 <div id="controls">
-<button onclick="mode='auto'">Auto</button>
-<button onclick="startCamera()">Cámara</button>
+    <button onclick="setManualMode('auto')">Auto</button>
+    <button onclick="startCamera()">Cámara</button>
 </div>
 
-<div id="modeLabel">Modo: Auto</div>
+<div id="modeLabel">Iniciando...</div>
 
 <div class="level" id="levelUI">
-<div id="bubble" class="bubble"></div>
+    <div id="bubble" class="bubble"></div>
 </div>
 
 <div id="circle">
-<div id="dot"></div>
+    <div id="dot"></div>
 </div>
 
 <div class="value" id="value">0.00°</div>
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
 
-<div id="version">v1.3</div>
+<div id="version">v1.4</div>
 
 <script>
+let mode = "auto";
+let currentMode = "level";
+const bubble = document.getElementById("bubble");
+const value = document.getElementById("value");
+const percent = document.getElementById("percent");
+const ratio = document.getElementById("ratio");
+const label = document.getElementById("modeLabel");
+const circle = document.getElementById("circle");
+const dot = document.getElementById("dot");
+const levelUI = document.getElementById("levelUI");
+const cam = document.getElementById("camera");
+const line = document.getElementById("line");
 
-let mode="auto"
-let currentMode="level"
+let smoothX = 0, smoothY = 0;
+const MAX_ANGLE = 20;
 
-const bubble=document.getElementById("bubble")
-const value=document.getElementById("value")
-const percent=document.getElementById("percent")
-const ratio=document.getElementById("ratio")
-const label=document.getElementById("modeLabel")
-
-const circle=document.getElementById("circle")
-const dot=document.getElementById("dot")
-const levelUI=document.getElementById("levelUI")
-
-const cam=document.getElementById("camera")
-const line=document.getElementById("line")
-
-let smoothX=0
-let smoothY=0
-
-let zeroX=0
-let zeroY=0
-
-let lastMove=Date.now()
-
-let pendingMode=null
-let modeTimer=0
-
-const MAX=20
-
-function startCamera(){
-
-mode="camera"
-
-cam.style.display="block"
-line.style.display="block"
-
-navigator.mediaDevices.getUserMedia({
-video:{facingMode:{ideal:"environment"}}
-}).then(stream=>{
-cam.srcObject=stream
-})
-
+function setManualMode(m) {
+    mode = m;
+    cam.style.display = "none";
+    line.style.display = "none";
 }
 
-function detectMode(beta,gamma){
-
-let b=Math.abs(beta)
-let g=Math.abs(gamma)
-
-if(b < 25 && g < 25) return "circle"
-if(b > 65) return "plumb"
-
-return "level"
-
+function startCamera() {
+    mode = "camera";
+    cam.style.display = "block";
+    line.style.display = "block";
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+        .then(stream => cam.srcObject = stream)
+        .catch(err => alert("Error cámara: " + err));
 }
 
-function updateMode(newMode){
-
-if(newMode!==pendingMode){
-
-pendingMode=newMode
-modeTimer=Date.now()
-return
-
+function requestAccess() {
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().then(state => {
+            if (state === 'granted') {
+                window.addEventListener("deviceorientation", update);
+                document.getElementById('ios-overlay').style.display = 'none';
+            }
+        });
+    }
 }
 
-if(Date.now()-modeTimer>600){
+function update(e) {
+    if (e.gamma == null) return;
 
-currentMode=newMode
+    // Filtro de suavizado
+    smoothX = smoothX * 0.8 + e.gamma * 0.2;
+    smoothY = smoothY * 0.8 + e.beta * 0.2;
 
+    let beta = e.beta;
+    let gamma = e.gamma;
+
+    if (mode === "camera") {
+        display(gamma);
+        line.style.background = Math.abs(gamma) < 0.2 ? "#00ff00" : "red";
+        return;
+    }
+
+    // Lógica de cambio de modo mejorada (Histéresis)
+    if (mode === "auto") {
+        let absBeta = Math.abs(beta);
+        let absGamma = Math.abs(gamma);
+
+        if (absBeta < 20) {
+            currentMode = "circle"; // Móvil plano sobre mesa
+        } else if (absBeta > 70) {
+            currentMode = "plumb";  // Móvil totalmente vertical
+        } else {
+            currentMode = "level";  // Móvil inclinado (uso típico de nivel)
+        }
+    }
+
+    if (currentMode === "level") {
+        levelUI.style.display = "block";
+        circle.style.display = "none";
+        label.innerText = "MODO: NIVEL HORIZONTAL";
+        
+        let x = gamma;
+        let pos = 50 + (x / MAX_ANGLE) * 45;
+        pos = Math.max(5, Math.min(95, pos));
+        bubble.style.left = `calc(${pos}% - 26px)`;
+        display(x);
+    } 
+    else if (currentMode === "plumb") {
+        levelUI.style.display = "block";
+        circle.style.display = "none";
+        label.innerText = "MODO: PLOMADA VERTICAL";
+        
+        let x = gamma; // En vertical, gamma sigue siendo la inclinación lateral
+        let pos = 50 + (x / MAX_ANGLE) * 45;
+        pos = Math.max(5, Math.min(95, pos));
+        bubble.style.left = `calc(${pos}% - 26px)`;
+        display(x);
+    } 
+    else if (currentMode === "circle") {
+        levelUI.style.display = "none";
+        circle.style.display = "block";
+        label.innerText = "MODO: SUPERFICIE (DIANA)";
+        
+        let px = 112.5 + (gamma / MAX_ANGLE) * 100;
+        let py = 112.5 + (beta / MAX_ANGLE) * 100;
+        dot.style.left = Math.max(0, Math.min(225, px)) + "px";
+        dot.style.top = Math.max(0, Math.min(225, py)) + "px";
+        
+        let tilt = Math.sqrt(gamma*gamma + beta*beta);
+        display(tilt);
+    }
 }
 
+function display(a) {
+    let ang = Math.abs(a);
+    value.innerText = ang.toFixed(2) + "°";
+    
+    // Evitar errores de infinito en tan(90)
+    let rad = ang * Math.PI / 180;
+    let p = Math.tan(rad) * 100;
+    percent.innerText = ang > 89 ? "--- %" : p.toFixed(1) + " %";
+
+    let r = 1 / Math.tan(rad);
+    ratio.innerText = (ang > 89 || ang < 0.01) ? "1 : ∞" : "1 : " + r.toFixed(1);
+
+    value.style.color = ang < 0.2 ? "#00ff00" : "white";
 }
 
-function update(e){
-
-if(e.gamma==null)return
-
-smoothX=smoothX*0.94 + e.gamma*0.06
-smoothY=smoothY*0.94 + e.beta*0.06
-
-let x=smoothX-zeroX
-let y=smoothY-zeroY
-
-let motion=Math.abs(e.gamma)+Math.abs(e.beta)
-
-if(motion>0.5){
-lastMove=Date.now()
+if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    document.getElementById('ios-overlay').style.display = 'flex';
+} else {
+    window.addEventListener("deviceorientation", update);
 }
-
-if(Math.abs(e.beta) < 20 && Date.now()-lastMove>2000){
-
-zeroX = zeroX*0.98 + smoothX*0.02
-zeroY = zeroY*0.98 + smoothY*0.02
-
-}
-
-if(mode==="camera"){
-
-display(x)
-
-if(Math.abs(x)<0.2){
-line.style.background="#00ff00"
-}else{
-line.style.background="#ff3333"
-}
-
-return
-}
-
-let detected=detectMode(e.beta,e.gamma)
-
-updateMode(detected)
-
-if(currentMode==="level"){
-
-circle.style.display="none"
-levelUI.style.display="block"
-label.innerText="Modo: Nivel"
-
-let pos=50+(x/MAX)*40
-pos=Math.max(5,Math.min(95,pos))
-
-bubble.style.left=`calc(${pos}% - 26px)`
-
-display(x)
-
-}
-
-if(currentMode==="plumb"){
-
-circle.style.display="none"
-levelUI.style.display="block"
-label.innerText="Modo: Plomada"
-
-let pos=50+(y/MAX)*40
-pos=Math.max(5,Math.min(95,pos))
-
-bubble.style.left=`calc(${pos}% - 26px)`
-
-display(y)
-
-}
-
-if(currentMode==="circle"){
-
-levelUI.style.display="none"
-circle.style.display="block"
-label.innerText="Modo: Circular"
-
-let px=116+(x/MAX)*80
-let py=116+(y/MAX)*80
-
-dot.style.left=px+"px"
-dot.style.top=py+"px"
-
-let betaRad=e.beta*Math.PI/180
-let gammaRad=e.gamma*Math.PI/180
-
-let angle=Math.atan(Math.sqrt(Math.tan(betaRad)**2+Math.tan(gammaRad)**2))*180/Math.PI
-
-display(angle)
-
-}
-
-}
-
-function display(a){
-
-value.innerText=a.toFixed(2)+"°"
-
-let p=Math.tan(a*Math.PI/180)*100
-percent.innerText=p.toFixed(1)+" %"
-
-let r=1/Math.tan(a*Math.PI/180)
-
-if(r>1000){
-ratio.innerText="1 : ∞"
-}else{
-ratio.innerText="1 : "+r.toFixed(1)
-}
-
-if(Math.abs(a)<0.2){
-value.style.color="#00ff00"
-}else{
-value.style.color="white"
-}
-
-}
-
-window.addEventListener("deviceorientation",update)
-
 </script>
-
 </body>
 </html>
