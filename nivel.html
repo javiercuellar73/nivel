@@ -3,125 +3,88 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nivel PRO v1.8</title>
+<title>Nivel PRO v1.9</title>
 <style>
-    body { margin:0; background:#1c1c1c; font-family:sans-serif; color:white; text-align:center; overflow:hidden; height: 100vh; }
-    #version { position:fixed; bottom:10px; right:15px; font-size:12px; opacity:.6; font-family:monospace; }
-    #modeLabel { margin-top:20px; font-size:16px; font-weight:bold; color:#ffff33; text-transform:uppercase; }
-    .level { width:90%; max-width:500px; height:85px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:4px solid #000; border-radius:10px; margin:20px auto; position:relative; display:none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
-    .bubble { width:50px; height:50px; border-radius:50%; background:#fff; position:absolute; top:17.5px; left:calc(50% - 25px); transition:left 0.05s linear; box-shadow:inset 2px 2px 5px rgba(0,0,0,0.3); }
-    .value { font-size:4.8rem; margin-top:10px; font-family:monospace; font-weight:bold; }
-    .sub { font-size:1.2rem; opacity:0.8; margin:5px; font-family:monospace; }
-    #circle { width:250px; height:250px; border-radius:50%; border:5px solid #000; background:#333; margin:20px auto; display:none; position:relative; }
-    #dot { width:35px; height:35px; background:#fff; border-radius:50%; position:absolute; top:107.5px; left:107.5px; }
-    #ios-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
-    button { padding:12px 24px; background:#333; color:#fff; border:none; border-radius:5px; font-weight:bold; }
+    body { margin:0; background:#111; font-family:sans-serif; color:white; text-align:center; overflow:hidden; height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    #version { position:fixed; bottom:10px; right:15px; font-size:12px; opacity:.5; font-family:monospace; }
+    #modeLabel { margin-bottom:10px; font-size:14px; font-weight:bold; color:#ffff33; text-transform:uppercase; }
+    .level { width:320px; height:80px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:4px solid #000; border-radius:40px; position:relative; box-shadow:0 0 20px rgba(0,0,0,0.5); }
+    .bubble { width:45px; height:45px; border-radius:50%; background:#fff; position:absolute; top:17.5px; left:calc(50% - 22.5px); box-shadow:inset 2px 2px 5px rgba(0,0,0,0.3); }
+    .value { font-size:5rem; font-family:monospace; font-weight:bold; margin:10px 0; }
+    .sub { font-size:1.2rem; opacity:0.7; font-family:monospace; }
+    #ios-btn { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:100; display:none; align-items:center; justify-content:center; }
+    button { padding:20px; background:#ffff33; color:#000; border:none; border-radius:10px; font-weight:bold; cursor:pointer; }
 </style>
 </head>
 <body>
 
-<div id="ios-overlay"><button onclick="requestAccess()">INICIAR NIVEL</button></div>
+<div id="ios-btn"><button onclick="start()">ACTIVAR NIVEL</button></div>
 
-<div id="modeLabel">Detectando...</div>
-
-<div class="level" id="levelUI">
-    <div id="bubble" class="bubble"></div>
-</div>
-
-<div id="circle">
-    <div id="dot"></div>
-</div>
-
-<div class="value" id="value">0.00°</div>
-<div class="sub" id="percent">0 %</div>
-<div class="sub" id="ratio">1 : ∞</div>
-
-<div id="version">v1.8</div>
+<div id="modeLabel">Nivel de Precisión</div>
+<div class="level"><div id="bubble" class="bubble"></div></div>
+<div id="value" class="value">0.00°</div>
+<div id="percent" class="sub">0.0%</div>
+<div id="version">v1.9</div>
 
 <script>
-let currentMode = "level";
 const bubble = document.getElementById("bubble");
 const valDisp = document.getElementById("value");
 const pctDisp = document.getElementById("percent");
-const ratDisp = document.getElementById("ratio");
-const label = document.getElementById("modeLabel");
-const circle = document.getElementById("circle");
-const dot = document.getElementById("dot");
-const levelUI = document.getElementById("levelUI");
 
-function requestAccess() {
+function start() {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then(state => {
-            if (state === 'granted') {
-                window.addEventListener("deviceorientation", update);
-                document.getElementById('ios-overlay').style.display = 'none';
+        DeviceOrientationEvent.requestPermission().then(res => {
+            if (res === 'granted') {
+                window.addEventListener("deviceorientation", handle);
+                document.getElementById('ios-btn').style.display = 'none';
             }
         });
+    } else {
+        window.addEventListener("deviceorientation", handle);
+        document.getElementById('ios-btn').style.display = 'none';
     }
 }
 
-function update(e) {
-    let b = e.beta;  // Inclinación adelante/atrás
-    let g = e.gamma; // Inclinación lateral
+function handle(e) {
+    // Usamos radianes para cálculos precisos
+    const beta = e.beta * (Math.PI / 180);
+    const gamma = e.gamma * (Math.PI / 180);
 
-    // 1. DETECCIÓN DE MODO (Basado en la posición física real)
-    // Si el móvil está casi plano (boca arriba) -> MODO SUPERFICIE
-    if (Math.abs(b) < 30) {
-        currentMode = "circle";
-    } 
-    // Si el móvil está de pie (vertical) o apoyado en el canto -> MODO NIVEL
-    else {
-        currentMode = "level";
-    }
+    // Esta es la fórmula mágica: calcula el ángulo de balanceo (roll) 
+    // independientemente de si el móvil está inclinado hacia adelante o atrás.
+    let angleRad = Math.atan2(Math.sin(gamma), Math.cos(beta) * Math.cos(gamma));
+    let angleDeg = angleRad * (180 / Math.PI);
 
-    if (currentMode === "level") {
-        levelUI.style.display = "block";
-        circle.style.display = "none";
-        label.innerText = (Math.abs(b) > 75) ? "Plomada Vertical" : "Nivel de Canto";
-        
-        // El ángulo que nos interesa es el giro lateral (gamma)
-        // Pero cuando b > 90 (boca abajo), los ejes se invierten en algunos navegadores
-        let angle = g;
-        
-        // Dibujar burbuja
-        let pos = 50 + (angle / 20) * 45;
-        pos = Math.max(5, Math.min(95, pos));
-        bubble.style.left = `calc(${pos}% - 25px)`;
-        
-        render(angle);
-    } 
-    else {
-        levelUI.style.display = "none";
-        circle.style.display = "block";
-        label.innerText = "Superficie (Plano)";
-        
-        // En superficie, mostramos la desviación total
-        let px = 107.5 + (g / 20) * 107.5;
-        let py = 107.5 + (b / 20) * 107.5;
-        dot.style.left = Math.max(0, Math.min(215, px)) + "px";
-        dot.style.top = Math.max(0, Math.min(215, py)) + "px";
-        
-        render(Math.sqrt(g*g + b*b));
-    }
-}
-
-function render(a) {
-    let ang = Math.abs(a);
-    valDisp.innerText = ang.toFixed(2) + "°";
-    valDisp.style.color = ang < 0.2 ? "#00ff00" : "#fff";
+    // Normalizar el ángulo para que 0 sea el canto largo
+    // y 90 sea la plomada vertical.
+    let displayAngle = Math.abs(angleDeg);
     
-    let rad = ang * Math.PI / 180;
-    let p = Math.tan(rad) * 100;
-    pctDisp.innerText = ang > 85 ? "--- %" : p.toFixed(1) + " %";
+    // Si el móvil está "de pie", el ángulo real respecto a la vertical
+    if (displayAngle > 45) {
+        displayAngle = Math.abs(90 - displayAngle);
+        document.getElementById("modeLabel").innerText = "MODO PLOMADA";
+    } else {
+        document.getElementById("modeLabel").innerText = "MODO NIVEL";
+    }
+
+    // Actualizar Interfaz
+    valDisp.innerText = displayAngle.toFixed(2) + "°";
+    valDisp.style.color = displayAngle < 0.1 ? "#00ff00" : "#fff";
     
-    let r = 1 / Math.tan(rad);
-    ratDisp.innerText = (ang > 85 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
+    let p = Math.tan(displayAngle * Math.PI / 180) * 100;
+    pctDisp.innerText = p.toFixed(1) + "%";
+
+    // Mover burbuja (limitado a +/- 20 grados para visualización)
+    let visualX = Math.max(-20, Math.min(20, angleDeg));
+    let pos = 50 + (visualX / 20) * 40;
+    bubble.style.left = `calc(${pos}% - 22.5px)`;
 }
 
+// Mostrar botón si es necesario (iOS) o iniciar
 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-    document.getElementById('ios-overlay').style.display = 'flex';
+    document.getElementById('ios-btn').style.display = 'flex';
 } else {
-    window.addEventListener("deviceorientation", update);
+    start();
 }
 </script>
 </body>
