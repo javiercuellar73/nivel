@@ -22,17 +22,20 @@ bottom:6px;
 right:10px;
 font-size:12px;
 opacity:.5;
-z-index:10;
+}
+
+#modeLabel{
+margin-top:8px;
+font-size:14px;
+opacity:.8;
 }
 
 #controls{
-padding:10px;
-z-index:5;
-position:relative;
+padding:8px;
 }
 
 button{
-padding:7px 12px;
+padding:6px 12px;
 margin:3px;
 border:none;
 border-radius:6px;
@@ -41,9 +44,7 @@ color:white;
 font-size:13px;
 }
 
-button:hover{
-background:#555;
-}
+button:hover{background:#555;}
 
 .level{
 width:90%;
@@ -64,7 +65,6 @@ background:white;
 position:absolute;
 top:18px;
 left:calc(50% - 26px);
-transition:left .05s linear;
 }
 
 .value{
@@ -76,12 +76,6 @@ font-family:monospace;
 .sub{
 font-size:1rem;
 opacity:.8;
-}
-
-#modeLabel{
-font-size:14px;
-opacity:.8;
-margin-top:4px;
 }
 
 #circle{
@@ -113,7 +107,6 @@ width:100%;
 height:100%;
 object-fit:cover;
 display:none;
-z-index:0;
 }
 
 #line{
@@ -124,7 +117,6 @@ width:100%;
 height:4px;
 background:red;
 display:none;
-z-index:1;
 }
 
 </style>
@@ -136,8 +128,8 @@ z-index:1;
 <div id="line"></div>
 
 <div id="controls">
-<button onclick="setMode('auto')">Auto</button>
-<button onclick="setMode('camera')">Cámara</button>
+<button onclick="mode='auto'">Auto</button>
+<button onclick="startCamera()">Cámara</button>
 </div>
 
 <div id="modeLabel">Modo: Auto</div>
@@ -154,7 +146,7 @@ z-index:1;
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
 
-<div id="version">v1.2</div>
+<div id="version">v1.3</div>
 
 <script>
 
@@ -182,46 +174,53 @@ let zeroY=0
 
 let lastMove=Date.now()
 
+let pendingMode=null
+let modeTimer=0
+
 const MAX=20
 
-function setMode(m){
-
-mode=m
-
-cam.style.display="none"
-line.style.display="none"
-
-if(m==="camera"){
-startCamera()
-label.innerText="Modo: Cámara"
-}else{
-label.innerText="Modo: Auto"
-}
-
-}
-
 function startCamera(){
+
+mode="camera"
 
 cam.style.display="block"
 line.style.display="block"
 
 navigator.mediaDevices.getUserMedia({
-video:{
-facingMode:{ideal:"environment"}
-}
+video:{facingMode:{ideal:"environment"}}
 }).then(stream=>{
 cam.srcObject=stream
 })
 
 }
 
-function detectMode(beta){
+function detectMode(beta,gamma){
 
 let b=Math.abs(beta)
+let g=Math.abs(gamma)
 
-if(b<30) return "level"
-if(b>60) return "plumb"
-return "circle"
+if(b < 25 && g < 25) return "circle"
+if(b > 65) return "plumb"
+
+return "level"
+
+}
+
+function updateMode(newMode){
+
+if(newMode!==pendingMode){
+
+pendingMode=newMode
+modeTimer=Date.now()
+return
+
+}
+
+if(Date.now()-modeTimer>600){
+
+currentMode=newMode
+
+}
 
 }
 
@@ -241,10 +240,10 @@ if(motion>0.5){
 lastMove=Date.now()
 }
 
-if(Date.now()-lastMove>2000){
+if(Math.abs(e.beta) < 20 && Date.now()-lastMove>2000){
 
-zeroX=zeroX*0.98 + smoothX*0.02
-zeroY=zeroY*0.98 + smoothY*0.02
+zeroX = zeroX*0.98 + smoothX*0.02
+zeroY = zeroY*0.98 + smoothY*0.02
 
 }
 
@@ -261,21 +260,14 @@ line.style.background="#ff3333"
 return
 }
 
-if(mode==="auto"){
+let detected=detectMode(e.beta,e.gamma)
 
-currentMode=detectMode(e.beta)
-
-}else{
-
-currentMode=mode
-
-}
+updateMode(detected)
 
 if(currentMode==="level"){
 
 circle.style.display="none"
 levelUI.style.display="block"
-
 label.innerText="Modo: Nivel"
 
 let pos=50+(x/MAX)*40
@@ -291,7 +283,6 @@ if(currentMode==="plumb"){
 
 circle.style.display="none"
 levelUI.style.display="block"
-
 label.innerText="Modo: Plomada"
 
 let pos=50+(y/MAX)*40
@@ -307,7 +298,6 @@ if(currentMode==="circle"){
 
 levelUI.style.display="none"
 circle.style.display="block"
-
 label.innerText="Modo: Circular"
 
 let px=116+(x/MAX)*80
@@ -316,9 +306,12 @@ let py=116+(y/MAX)*80
 dot.style.left=px+"px"
 dot.style.top=py+"px"
 
-let a=Math.sqrt(x*x+y*y)
+let betaRad=e.beta*Math.PI/180
+let gammaRad=e.gamma*Math.PI/180
 
-display(a)
+let angle=Math.atan(Math.sqrt(Math.tan(betaRad)**2+Math.tan(gammaRad)**2))*180/Math.PI
+
+display(angle)
 
 }
 
