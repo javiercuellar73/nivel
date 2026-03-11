@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nivel PRO v1.4</title>
+<title>Nivel PRO v1.5</title>
 <style>
     body { margin:0; background:#1c1c1c; font-family:Segoe UI,Arial; color:white; text-align:center; overflow:hidden; height: 100vh; }
     #version { position:fixed; bottom:6px; right:10px; font-size:12px; opacity:.5; }
-    #modeLabel { margin-top:15px; font-size:16px; font-weight: bold; color: #ffff33; }
+    #modeLabel { margin-top:15px; font-size:16px; font-weight: bold; color: #ffff33; text-transform: uppercase; }
     #controls { padding:10px; position: relative; z-index: 10; }
     button { padding:10px 20px; margin:5px; border:none; border-radius:6px; background:#333; color:white; font-size:14px; cursor: pointer; }
-    .level { width:90%; max-width:520px; height:90px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:5px solid #111; border-radius:10px; margin:20px auto; position:relative; }
+    .level { width:90%; max-width:520px; height:90px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:5px solid #111; border-radius:10px; margin:20px auto; position:relative; display:none; }
     .bubble { width:52px; height:52px; border-radius:50%; background:white; position:absolute; top:18px; left:calc(50% - 26px); transition: left 0.05s linear; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2); }
-    .value { font-size:4rem; margin-top:10px; font-family:monospace; font-weight: bold; }
-    .sub { font-size:1.2rem; opacity:.8; margin: 5px; }
+    .value { font-size:4.5rem; margin-top:10px; font-family:monospace; font-weight: bold; }
+    .sub { font-size:1.2rem; opacity:0.8; margin: 5px; }
     #circle { width:260px; height:260px; border-radius:50%; border:6px solid #111; background:#333; margin:20px auto; display:none; position:relative; }
     #dot { width:35px; height:35px; background:white; border-radius:50%; position:absolute; top:112.5px; left:112.5px; transition: all 0.05s linear; }
     #camera { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; z-index:0; }
@@ -32,7 +32,7 @@
     <button onclick="startCamera()">Cámara</button>
 </div>
 
-<div id="modeLabel">Iniciando...</div>
+<div id="modeLabel">Detectando...</div>
 
 <div class="level" id="levelUI">
     <div id="bubble" class="bubble"></div>
@@ -46,7 +46,7 @@
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
 
-<div id="version">v1.4</div>
+<div id="version">v1.5</div>
 
 <script>
 let mode = "auto";
@@ -63,7 +63,7 @@ const cam = document.getElementById("camera");
 const line = document.getElementById("line");
 
 let smoothX = 0, smoothY = 0;
-const MAX_ANGLE = 20;
+const MAX_RANGE = 25;
 
 function setManualMode(m) {
     mode = m;
@@ -76,8 +76,7 @@ function startCamera() {
     cam.style.display = "block";
     line.style.display = "block";
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(stream => cam.srcObject = stream)
-        .catch(err => alert("Error cámara: " + err));
+        .then(stream => cam.srcObject = stream);
 }
 
 function requestAccess() {
@@ -94,81 +93,90 @@ function requestAccess() {
 function update(e) {
     if (e.gamma == null) return;
 
-    // Filtro de suavizado
-    smoothX = smoothX * 0.8 + e.gamma * 0.2;
-    smoothY = smoothY * 0.8 + e.beta * 0.2;
+    // Suavizado dinámico
+    smoothX = smoothX * 0.85 + e.gamma * 0.15;
+    smoothY = smoothY * 0.85 + e.beta * 0.15;
 
-    let beta = e.beta;
-    let gamma = e.gamma;
+    let b = e.beta;
+    let g = e.gamma;
 
     if (mode === "camera") {
-        display(gamma);
-        line.style.background = Math.abs(gamma) < 0.2 ? "#00ff00" : "red";
+        display(g);
+        line.style.background = Math.abs(g) < 0.2 ? "#00ff00" : "red";
         return;
     }
 
-    // Lógica de cambio de modo mejorada (Histéresis)
     if (mode === "auto") {
-        let absBeta = Math.abs(beta);
-        let absGamma = Math.abs(gamma);
-
-        if (absBeta < 20) {
-            currentMode = "circle"; // Móvil plano sobre mesa
-        } else if (absBeta > 70) {
-            currentMode = "plumb";  // Móvil totalmente vertical
-        } else {
-            currentMode = "level";  // Móvil inclinado (uso típico de nivel)
+        let absB = Math.abs(b);
+        // Diana si está plano sobre la mesa
+        if (absB < 15) {
+            currentMode = "circle";
+        } 
+        // Plomada si está muy vertical
+        else if (absB > 75) {
+            currentMode = "plumb";
+        } 
+        // Nivel horizontal (el uso más común, móvil inclinado hacia el usuario)
+        else {
+            currentMode = "level";
         }
     }
 
     if (currentMode === "level") {
         levelUI.style.display = "block";
         circle.style.display = "none";
-        label.innerText = "MODO: NIVEL HORIZONTAL";
+        label.innerText = "Nivel Horizontal";
         
-        let x = gamma;
-        let pos = 50 + (x / MAX_ANGLE) * 45;
+        // En este modo, el ángulo de nivel es GAMMA
+        let angle = g;
+        let pos = 50 + (angle / MAX_RANGE) * 45;
         pos = Math.max(5, Math.min(95, pos));
         bubble.style.left = `calc(${pos}% - 26px)`;
-        display(x);
+        display(angle);
     } 
     else if (currentMode === "plumb") {
         levelUI.style.display = "block";
         circle.style.display = "none";
-        label.innerText = "MODO: PLOMADA VERTICAL";
+        label.innerText = "Plomada Vertical";
         
-        let x = gamma; // En vertical, gamma sigue siendo la inclinación lateral
-        let pos = 50 + (x / MAX_ANGLE) * 45;
+        // En vertical, el ángulo de nivel sigue siendo GAMMA (giro lateral)
+        let angle = g;
+        let pos = 50 + (angle / MAX_RANGE) * 45;
         pos = Math.max(5, Math.min(95, pos));
         bubble.style.left = `calc(${pos}% - 26px)`;
-        display(x);
+        display(angle);
     } 
     else if (currentMode === "circle") {
         levelUI.style.display = "none";
         circle.style.display = "block";
-        label.innerText = "MODO: SUPERFICIE (DIANA)";
+        label.innerText = "Superficie (Diana)";
         
-        let px = 112.5 + (gamma / MAX_ANGLE) * 100;
-        let py = 112.5 + (beta / MAX_ANGLE) * 100;
+        let px = 112.5 + (g / MAX_RANGE) * 112.5;
+        let py = 112.5 + (b / MAX_RANGE) * 112.5;
         dot.style.left = Math.max(0, Math.min(225, px)) + "px";
         dot.style.top = Math.max(0, Math.min(225, py)) + "px";
         
-        let tilt = Math.sqrt(gamma*gamma + beta*beta);
-        display(tilt);
+        // Pitágoras para el ángulo total de inclinación en superficie
+        let totalTilt = Math.sqrt(g*g + b*b);
+        display(totalTilt);
     }
 }
 
 function display(a) {
     let ang = Math.abs(a);
+    // Corrección para evitar el salto de 90 a 0 en ciertos ejes
+    if (ang > 45 && currentMode !== "circle") {
+        // Si detecta un ángulo imposible para el modo actual, no actualizamos
+    }
+
     value.innerText = ang.toFixed(2) + "°";
     
-    // Evitar errores de infinito en tan(90)
     let rad = ang * Math.PI / 180;
     let p = Math.tan(rad) * 100;
-    percent.innerText = ang > 89 ? "--- %" : p.toFixed(1) + " %";
+    percent.innerText = ang > 85 ? "--- %" : p.toFixed(1) + " %";
 
     let r = 1 / Math.tan(rad);
-    ratio.innerText = (ang > 89 || ang < 0.01) ? "1 : ∞" : "1 : " + r.toFixed(1);
+    ratio.innerText = (ang > 85 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
 
     value.style.color = ang < 0.2 ? "#00ff00" : "white";
 }
