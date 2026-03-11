@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Nivel PRO MAX</title>
+
+<style>
+
+body{
+margin:0;
+background:#222;
+color:white;
+font-family:Segoe UI;
+text-align:center;
+overflow:hidden;
+}
+
+#controls{
+padding:10px;
+}
+
+button{
+padding:8px 14px;
+margin:4px;
+border:none;
+border-radius:6px;
+background:#333;
+color:white;
+}
+
+button:hover{background:#555;}
+
+.level{
+width:90%;
+max-width:520px;
+height:80px;
+background:linear-gradient(#cfcf00,#ffff33,#cfcf00);
+border:5px solid #111;
+border-radius:10px;
+margin:auto;
+position:relative;
+}
+
+.bubble{
+width:50px;
+height:50px;
+border-radius:50%;
+background:white;
+position:absolute;
+top:15px;
+left:calc(50% - 25px);
+transition:left .05s linear;
+}
+
+.value{
+font-size:3rem;
+margin-top:20px;
+font-family:monospace;
+}
+
+#camera{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+object-fit:cover;
+display:none;
+z-index:-1;
+}
+
+#line{
+position:fixed;
+top:50%;
+left:0;
+width:100%;
+height:3px;
+background:#00ff00;
+display:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<video id="camera" autoplay></video>
+<div id="line"></div>
+
+<div id="controls">
+
+<button onclick="mode='level'">Nivel</button>
+<button onclick="mode='plumb'">Plomada</button>
+<button onclick="mode='360'">360°</button>
+<button onclick="cameraMode()">Cámara</button>
+<button onclick="calibrate()">Calibrar</button>
+
+</div>
+
+<div class="level">
+<div id="bubble" class="bubble"></div>
+</div>
+
+<div id="value" class="value">0.00</div>
+
+<script>
+
+let mode="level"
+
+const bubble=document.getElementById("bubble")
+const value=document.getElementById("value")
+const cam=document.getElementById("camera")
+const line=document.getElementById("line")
+
+let offsetX=parseFloat(localStorage.getItem("offsetX"))||0
+let offsetY=parseFloat(localStorage.getItem("offsetY"))||0
+
+let smoothX=0
+let smoothY=0
+
+const MAX=20
+let lastBuzz=0
+
+function update(e){
+
+let gamma=e.gamma
+let beta=e.beta
+
+if(gamma==null)return
+
+smoothX=smoothX*0.9 + gamma*0.1
+smoothY=smoothY*0.9 + beta*0.1
+
+let x=smoothX-offsetX
+let y=smoothY-offsetY
+
+if(mode==="level"){
+
+let pos=50+(x/MAX)*40
+pos=Math.max(5,Math.min(95,pos))
+
+bubble.style.left=`calc(${pos}% - 25px)`
+value.innerText=x.toFixed(2)
+
+check(x)
+
+}
+
+if(mode==="plumb"){
+
+let pos=50+(y/MAX)*40
+pos=Math.max(5,Math.min(95,pos))
+
+bubble.style.left=`calc(${pos}% - 25px)`
+value.innerText=y.toFixed(2)
+
+check(y)
+
+}
+
+if(mode==="360"){
+
+let angle=Math.sqrt(x*x+y*y)
+value.innerText=angle.toFixed(2)
+
+check(angle)
+
+}
+
+if(mode==="camera"){
+
+value.innerText=x.toFixed(2)
+
+if(Math.abs(x)<0.2){
+
+line.style.background="#00ff00"
+
+}else{
+
+line.style.background="#ff4444"
+
+}
+
+}
+
+}
+
+function check(a){
+
+if(Math.abs(a)<0.2){
+
+value.style.color="#00ff00"
+
+let now=Date.now()
+
+if(navigator.vibrate && now-lastBuzz>1000){
+
+navigator.vibrate(25)
+lastBuzz=now
+
+}
+
+}else{
+
+value.style.color="white"
+
+}
+
+}
+
+function calibrate(){
+
+offsetX=smoothX
+offsetY=smoothY
+
+localStorage.setItem("offsetX",offsetX)
+localStorage.setItem("offsetY",offsetY)
+
+}
+
+function cameraMode(){
+
+mode="camera"
+
+cam.style.display="block"
+line.style.display="block"
+
+navigator.mediaDevices.getUserMedia({video:true})
+.then(stream=>{
+cam.srcObject=stream
+})
+
+}
+
+window.addEventListener("deviceorientation",update)
+
+</script>
+
+</body>
+</html>
