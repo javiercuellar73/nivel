@@ -3,33 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nivel PRO Final</title>
+<title>Nivel PRO</title>
 
 <style>
 
 body{
 margin:0;
-background:#1f1f1f;
+background:#1c1c1c;
 font-family:Segoe UI,Arial;
 color:white;
 text-align:center;
 overflow:hidden;
 }
 
+#version{
+position:fixed;
+bottom:6px;
+right:10px;
+font-size:12px;
+opacity:.5;
+z-index:10;
+}
+
 #controls{
 padding:10px;
-z-index:3;
+z-index:5;
 position:relative;
 }
 
 button{
-padding:8px 14px;
-margin:4px;
+padding:7px 12px;
+margin:3px;
 border:none;
 border-radius:6px;
 background:#333;
 color:white;
-font-size:14px;
+font-size:13px;
 }
 
 button:hover{
@@ -67,6 +76,12 @@ font-family:monospace;
 .sub{
 font-size:1rem;
 opacity:.8;
+}
+
+#modeLabel{
+font-size:14px;
+opacity:.8;
+margin-top:4px;
 }
 
 #circle{
@@ -121,13 +136,11 @@ z-index:1;
 <div id="line"></div>
 
 <div id="controls">
-
-<button onclick="setMode('level')">Nivel</button>
-<button onclick="setMode('plumb')">Plomada</button>
-<button onclick="setMode('circle')">Circular</button>
+<button onclick="setMode('auto')">Auto</button>
 <button onclick="setMode('camera')">Cámara</button>
-
 </div>
+
+<div id="modeLabel">Modo: Auto</div>
 
 <div class="level" id="levelUI">
 <div id="bubble" class="bubble"></div>
@@ -141,14 +154,18 @@ z-index:1;
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
 
+<div id="version">v1.2</div>
+
 <script>
 
-let mode="level"
+let mode="auto"
+let currentMode="level"
 
 const bubble=document.getElementById("bubble")
 const value=document.getElementById("value")
 const percent=document.getElementById("percent")
 const ratio=document.getElementById("ratio")
+const label=document.getElementById("modeLabel")
 
 const circle=document.getElementById("circle")
 const dot=document.getElementById("dot")
@@ -174,25 +191,16 @@ mode=m
 cam.style.display="none"
 line.style.display="none"
 
-if(m==="circle"){
-circle.style.display="block"
-levelUI.style.display="none"
-}
-else if(m==="camera"){
+if(m==="camera"){
 startCamera()
-circle.style.display="none"
-levelUI.style.display="none"
-}
-else{
-circle.style.display="none"
-levelUI.style.display="block"
+label.innerText="Modo: Cámara"
+}else{
+label.innerText="Modo: Auto"
 }
 
 }
 
 function startCamera(){
-
-mode="camera"
 
 cam.style.display="block"
 line.style.display="block"
@@ -204,6 +212,16 @@ facingMode:{ideal:"environment"}
 }).then(stream=>{
 cam.srcObject=stream
 })
+
+}
+
+function detectMode(beta){
+
+let b=Math.abs(beta)
+
+if(b<30) return "level"
+if(b>60) return "plumb"
+return "circle"
 
 }
 
@@ -230,7 +248,35 @@ zeroY=zeroY*0.98 + smoothY*0.02
 
 }
 
-if(mode==="level"){
+if(mode==="camera"){
+
+display(x)
+
+if(Math.abs(x)<0.2){
+line.style.background="#00ff00"
+}else{
+line.style.background="#ff3333"
+}
+
+return
+}
+
+if(mode==="auto"){
+
+currentMode=detectMode(e.beta)
+
+}else{
+
+currentMode=mode
+
+}
+
+if(currentMode==="level"){
+
+circle.style.display="none"
+levelUI.style.display="block"
+
+label.innerText="Modo: Nivel"
 
 let pos=50+(x/MAX)*40
 pos=Math.max(5,Math.min(95,pos))
@@ -241,7 +287,12 @@ display(x)
 
 }
 
-if(mode==="plumb"){
+if(currentMode==="plumb"){
+
+circle.style.display="none"
+levelUI.style.display="block"
+
+label.innerText="Modo: Plomada"
 
 let pos=50+(y/MAX)*40
 pos=Math.max(5,Math.min(95,pos))
@@ -252,7 +303,12 @@ display(y)
 
 }
 
-if(mode==="circle"){
+if(currentMode==="circle"){
+
+levelUI.style.display="none"
+circle.style.display="block"
+
+label.innerText="Modo: Circular"
 
 let px=116+(x/MAX)*80
 let py=116+(y/MAX)*80
@@ -263,18 +319,6 @@ dot.style.top=py+"px"
 let a=Math.sqrt(x*x+y*y)
 
 display(a)
-
-}
-
-if(mode==="camera"){
-
-display(x)
-
-if(Math.abs(x)<0.2){
-line.style.background="#00ff00"
-}else{
-line.style.background="#ff3333"
-}
 
 }
 
