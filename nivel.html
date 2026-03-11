@@ -2,24 +2,24 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Nivel PRO</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nivel PRO Final</title>
 
 <style>
 
 body{
 margin:0;
-background:#222;
+background:#1f1f1f;
+font-family:Segoe UI,Arial;
 color:white;
-font-family:Segoe UI;
 text-align:center;
 overflow:hidden;
 }
 
 #controls{
 padding:10px;
+z-index:3;
 position:relative;
-z-index:2;
 }
 
 button{
@@ -29,14 +29,17 @@ border:none;
 border-radius:6px;
 background:#333;
 color:white;
+font-size:14px;
 }
 
-button:hover{background:#555;}
+button:hover{
+background:#555;
+}
 
 .level{
 width:90%;
 max-width:520px;
-height:80px;
+height:90px;
 background:linear-gradient(#cfcf00,#ffff33,#cfcf00);
 border:5px solid #111;
 border-radius:10px;
@@ -45,20 +48,25 @@ position:relative;
 }
 
 .bubble{
-width:50px;
-height:50px;
+width:52px;
+height:52px;
 border-radius:50%;
 background:white;
 position:absolute;
-top:15px;
-left:calc(50% - 25px);
+top:18px;
+left:calc(50% - 26px);
 transition:left .05s linear;
 }
 
 .value{
 font-size:3rem;
-margin-top:15px;
+margin-top:10px;
 font-family:monospace;
+}
+
+.sub{
+font-size:1rem;
+opacity:.8;
 }
 
 #circle{
@@ -66,7 +74,7 @@ width:260px;
 height:260px;
 border-radius:50%;
 border:6px solid #111;
-background:#3a3a3a;
+background:#333;
 margin:auto;
 display:none;
 position:relative;
@@ -113,10 +121,12 @@ z-index:1;
 <div id="line"></div>
 
 <div id="controls">
+
 <button onclick="setMode('level')">Nivel</button>
 <button onclick="setMode('plumb')">Plomada</button>
 <button onclick="setMode('circle')">Circular</button>
-<button onclick="cameraMode()">Cámara</button>
+<button onclick="setMode('camera')">Cámara</button>
+
 </div>
 
 <div class="level" id="levelUI">
@@ -128,7 +138,8 @@ z-index:1;
 </div>
 
 <div class="value" id="value">0.00°</div>
-<div id="slope">0 %</div>
+<div class="sub" id="percent">0 %</div>
+<div class="sub" id="ratio">1 : ∞</div>
 
 <script>
 
@@ -136,7 +147,8 @@ let mode="level"
 
 const bubble=document.getElementById("bubble")
 const value=document.getElementById("value")
-const slope=document.getElementById("slope")
+const percent=document.getElementById("percent")
+const ratio=document.getElementById("ratio")
 
 const circle=document.getElementById("circle")
 const dot=document.getElementById("dot")
@@ -165,26 +177,29 @@ line.style.display="none"
 if(m==="circle"){
 circle.style.display="block"
 levelUI.style.display="none"
-}else{
+}
+else if(m==="camera"){
+startCamera()
+circle.style.display="none"
+levelUI.style.display="none"
+}
+else{
 circle.style.display="none"
 levelUI.style.display="block"
 }
 
 }
 
-function cameraMode(){
+function startCamera(){
 
 mode="camera"
-
-circle.style.display="none"
-levelUI.style.display="none"
 
 cam.style.display="block"
 line.style.display="block"
 
 navigator.mediaDevices.getUserMedia({
 video:{
-facingMode:{exact:"environment"}
+facingMode:{ideal:"environment"}
 }
 }).then(stream=>{
 cam.srcObject=stream
@@ -196,8 +211,8 @@ function update(e){
 
 if(e.gamma==null)return
 
-smoothX=smoothX*0.92 + e.gamma*0.08
-smoothY=smoothY*0.92 + e.beta*0.08
+smoothX=smoothX*0.94 + e.gamma*0.06
+smoothY=smoothY*0.94 + e.beta*0.06
 
 let x=smoothX-zeroX
 let y=smoothY-zeroY
@@ -220,7 +235,7 @@ if(mode==="level"){
 let pos=50+(x/MAX)*40
 pos=Math.max(5,Math.min(95,pos))
 
-bubble.style.left=`calc(${pos}% - 25px)`
+bubble.style.left=`calc(${pos}% - 26px)`
 
 display(x)
 
@@ -231,7 +246,7 @@ if(mode==="plumb"){
 let pos=50+(y/MAX)*40
 pos=Math.max(5,Math.min(95,pos))
 
-bubble.style.left=`calc(${pos}% - 25px)`
+bubble.style.left=`calc(${pos}% - 26px)`
 
 display(y)
 
@@ -256,13 +271,9 @@ if(mode==="camera"){
 display(x)
 
 if(Math.abs(x)<0.2){
-
 line.style.background="#00ff00"
-
 }else{
-
 line.style.background="#ff3333"
-
 }
 
 }
@@ -273,18 +284,21 @@ function display(a){
 
 value.innerText=a.toFixed(2)+"°"
 
-let percent=Math.tan(a*Math.PI/180)*100
+let p=Math.tan(a*Math.PI/180)*100
+percent.innerText=p.toFixed(1)+" %"
 
-slope.innerText=percent.toFixed(1)+" %"
+let r=1/Math.tan(a*Math.PI/180)
+
+if(r>1000){
+ratio.innerText="1 : ∞"
+}else{
+ratio.innerText="1 : "+r.toFixed(1)
+}
 
 if(Math.abs(a)<0.2){
-
 value.style.color="#00ff00"
-
 }else{
-
 value.style.color="white"
-
 }
 
 }
