@@ -3,27 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nivel PRO v1.5</title>
+<title>Nivel PRO v1.6</title>
 <style>
     body { margin:0; background:#1c1c1c; font-family:Segoe UI,Arial; color:white; text-align:center; overflow:hidden; height: 100vh; }
-    #version { position:fixed; bottom:6px; right:10px; font-size:12px; opacity:.5; }
-    #modeLabel { margin-top:15px; font-size:16px; font-weight: bold; color: #ffff33; text-transform: uppercase; }
+    #modeLabel { margin-top:15px; font-size:16px; font-weight: bold; color: #ffff33; text-transform: uppercase; letter-spacing: 1px; }
     #controls { padding:10px; position: relative; z-index: 10; }
-    button { padding:10px 20px; margin:5px; border:none; border-radius:6px; background:#333; color:white; font-size:14px; cursor: pointer; }
+    button { padding:10px 20px; margin:5px; border:none; border-radius:6px; background:#333; color:white; font-size:14px; font-weight: bold; }
     .level { width:90%; max-width:520px; height:90px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:5px solid #111; border-radius:10px; margin:20px auto; position:relative; display:none; }
     .bubble { width:52px; height:52px; border-radius:50%; background:white; position:absolute; top:18px; left:calc(50% - 26px); transition: left 0.05s linear; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2); }
     .value { font-size:4.5rem; margin-top:10px; font-family:monospace; font-weight: bold; }
-    .sub { font-size:1.2rem; opacity:0.8; margin: 5px; }
+    .sub { font-size:1.2rem; opacity:0.8; margin: 5px; font-family: monospace; }
     #circle { width:260px; height:260px; border-radius:50%; border:6px solid #111; background:#333; margin:20px auto; display:none; position:relative; }
     #dot { width:35px; height:35px; background:white; border-radius:50%; position:absolute; top:112.5px; left:112.5px; transition: all 0.05s linear; }
+    #ios-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
     #camera { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; z-index:0; }
     #line { position:fixed; top:50%; left:0; width:100%; height:4px; background:red; display:none; z-index:1; }
-    #ios-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
 </style>
 </head>
 <body>
 
-<div id="ios-overlay"><button onclick="requestAccess()">INICIAR SENSORES</button></div>
+<div id="ios-overlay"><button onclick="requestAccess()" style="padding:30px; font-size:20px; background:#ffff33; color:black;">INICIAR HERRAMIENTA</button></div>
 <video id="camera" autoplay playsinline></video>
 <div id="line"></div>
 
@@ -32,7 +31,7 @@
     <button onclick="startCamera()">Cámara</button>
 </div>
 
-<div id="modeLabel">Detectando...</div>
+<div id="modeLabel">Calibrando...</div>
 
 <div class="level" id="levelUI">
     <div id="bubble" class="bubble"></div>
@@ -45,8 +44,6 @@
 <div class="value" id="value">0.00°</div>
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
-
-<div id="version">v1.5</div>
 
 <script>
 let mode = "auto";
@@ -62,8 +59,7 @@ const levelUI = document.getElementById("levelUI");
 const cam = document.getElementById("camera");
 const line = document.getElementById("line");
 
-let smoothX = 0, smoothY = 0;
-const MAX_RANGE = 25;
+const MAX_RANGE = 20;
 
 function setManualMode(m) {
     mode = m;
@@ -91,14 +87,10 @@ function requestAccess() {
 }
 
 function update(e) {
-    if (e.gamma == null) return;
+    if (e.beta == null || e.gamma == null) return;
 
-    // Suavizado dinámico
-    smoothX = smoothX * 0.85 + e.gamma * 0.15;
-    smoothY = smoothY * 0.85 + e.beta * 0.15;
-
-    let b = e.beta;
-    let g = e.gamma;
+    let b = e.beta;  // Inclinación adelante/atrás (-180 a 180)
+    let g = e.gamma; // Inclinación izquierda/derecha (-90 a 90)
 
     if (mode === "camera") {
         display(g);
@@ -106,40 +98,28 @@ function update(e) {
         return;
     }
 
+    // Lógica Robusta de Detección de Modo
     if (mode === "auto") {
-        let absB = Math.abs(b);
-        // Diana si está plano sobre la mesa
-        if (absB < 15) {
+        // Si el móvil está casi plano (boca arriba)
+        if (Math.abs(b) < 35) {
             currentMode = "circle";
         } 
-        // Plomada si está muy vertical
-        else if (absB > 75) {
+        // Si el móvil está casi vertical (de pie)
+        else if (Math.abs(b) > 65) {
             currentMode = "plumb";
         } 
-        // Nivel horizontal (el uso más común, móvil inclinado hacia el usuario)
+        // Estado intermedio (uso como regla/nivel apoyado en el canto)
         else {
             currentMode = "level";
         }
     }
 
-    if (currentMode === "level") {
+    if (currentMode === "level" || currentMode === "plumb") {
         levelUI.style.display = "block";
         circle.style.display = "none";
-        label.innerText = "Nivel Horizontal";
+        label.innerText = currentMode === "level" ? "Nivel de Canto" : "Plomada Vertical";
         
-        // En este modo, el ángulo de nivel es GAMMA
-        let angle = g;
-        let pos = 50 + (angle / MAX_RANGE) * 45;
-        pos = Math.max(5, Math.min(95, pos));
-        bubble.style.left = `calc(${pos}% - 26px)`;
-        display(angle);
-    } 
-    else if (currentMode === "plumb") {
-        levelUI.style.display = "block";
-        circle.style.display = "none";
-        label.innerText = "Plomada Vertical";
-        
-        // En vertical, el ángulo de nivel sigue siendo GAMMA (giro lateral)
+        // En estos modos, el nivel es SIEMPRE el giro lateral (gamma)
         let angle = g;
         let pos = 50 + (angle / MAX_RANGE) * 45;
         pos = Math.max(5, Math.min(95, pos));
@@ -149,14 +129,14 @@ function update(e) {
     else if (currentMode === "circle") {
         levelUI.style.display = "none";
         circle.style.display = "block";
-        label.innerText = "Superficie (Diana)";
+        label.innerText = "Nivel de Superficie";
         
+        // Mapeo corregido para diana: g es X, b es Y
         let px = 112.5 + (g / MAX_RANGE) * 112.5;
         let py = 112.5 + (b / MAX_RANGE) * 112.5;
         dot.style.left = Math.max(0, Math.min(225, px)) + "px";
         dot.style.top = Math.max(0, Math.min(225, py)) + "px";
         
-        // Pitágoras para el ángulo total de inclinación en superficie
         let totalTilt = Math.sqrt(g*g + b*b);
         display(totalTilt);
     }
@@ -164,19 +144,14 @@ function update(e) {
 
 function display(a) {
     let ang = Math.abs(a);
-    // Corrección para evitar el salto de 90 a 0 en ciertos ejes
-    if (ang > 45 && currentMode !== "circle") {
-        // Si detecta un ángulo imposible para el modo actual, no actualizamos
-    }
-
     value.innerText = ang.toFixed(2) + "°";
     
     let rad = ang * Math.PI / 180;
     let p = Math.tan(rad) * 100;
-    percent.innerText = ang > 85 ? "--- %" : p.toFixed(1) + " %";
+    percent.innerText = ang > 88 ? "--- %" : p.toFixed(1) + " %";
 
     let r = 1 / Math.tan(rad);
-    ratio.innerText = (ang > 85 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
+    ratio.innerText = (ang > 88 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
 
     value.style.color = ang < 0.2 ? "#00ff00" : "white";
 }
