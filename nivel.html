@@ -3,34 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Nivel PRO v1.7</title>
+<title>Nivel PRO v1.8</title>
 <style>
-    body { margin:0; background:#1c1c1c; font-family:Segoe UI,Arial; color:white; text-align:center; overflow:hidden; height: 100vh; }
-    #version { position:fixed; bottom:10px; right:15px; font-size:12px; opacity:.6; font-family: monospace; z-index: 20; }
-    #modeLabel { margin-top:20px; font-size:16px; font-weight: bold; color: #ffff33; text-transform: uppercase; }
-    #controls { padding:10px; position: relative; z-index: 10; }
-    button { padding:10px 20px; margin:5px; border:none; border-radius:6px; background:#333; color:white; font-size:14px; font-weight: bold; }
-    .level { width:90%; max-width:520px; height:90px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:5px solid #111; border-radius:10px; margin:20px auto; position:relative; display:none; }
-    .bubble { width:52px; height:52px; border-radius:50%; background:white; position:absolute; top:18px; left:calc(50% - 26px); transition: left 0.05s linear; box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2); }
-    .value { font-size:4.5rem; margin-top:10px; font-family:monospace; font-weight: bold; }
-    .sub { font-size:1.2rem; opacity:0.8; margin: 5px; font-family: monospace; }
-    #circle { width:260px; height:260px; border-radius:50%; border:6px solid #111; background:#333; margin:20px auto; display:none; position:relative; }
-    #dot { width:35px; height:35px; background:white; border-radius:50%; position:absolute; top:112.5px; left:112.5px; transition: all 0.05s linear; }
-    #ios-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
-    #camera { position:fixed; top:0; left:0; width:100%; height:100%; object-fit:cover; display:none; z-index:0; }
-    #line { position:fixed; top:50%; left:0; width:100%; height:4px; background:red; display:none; z-index:1; }
+    body { margin:0; background:#1c1c1c; font-family:sans-serif; color:white; text-align:center; overflow:hidden; height: 100vh; }
+    #version { position:fixed; bottom:10px; right:15px; font-size:12px; opacity:.6; font-family:monospace; }
+    #modeLabel { margin-top:20px; font-size:16px; font-weight:bold; color:#ffff33; text-transform:uppercase; }
+    .level { width:90%; max-width:500px; height:85px; background:linear-gradient(#cfcf00,#ffff33,#cfcf00); border:4px solid #000; border-radius:10px; margin:20px auto; position:relative; display:none; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+    .bubble { width:50px; height:50px; border-radius:50%; background:#fff; position:absolute; top:17.5px; left:calc(50% - 25px); transition:left 0.05s linear; box-shadow:inset 2px 2px 5px rgba(0,0,0,0.3); }
+    .value { font-size:4.8rem; margin-top:10px; font-family:monospace; font-weight:bold; }
+    .sub { font-size:1.2rem; opacity:0.8; margin:5px; font-family:monospace; }
+    #circle { width:250px; height:250px; border-radius:50%; border:5px solid #000; background:#333; margin:20px auto; display:none; position:relative; }
+    #dot { width:35px; height:35px; background:#fff; border-radius:50%; position:absolute; top:107.5px; left:107.5px; }
+    #ios-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); display:flex; align-items:center; justify-content:center; z-index:100; display:none; }
+    button { padding:12px 24px; background:#333; color:#fff; border:none; border-radius:5px; font-weight:bold; }
 </style>
 </head>
 <body>
 
-<div id="ios-overlay"><button onclick="requestAccess()">INICIAR HERRAMIENTA</button></div>
-<video id="camera" autoplay playsinline></video>
-<div id="line"></div>
-
-<div id="controls">
-    <button onclick="setManualMode('auto')">Auto</button>
-    <button onclick="startCamera()">Cámara</button>
-</div>
+<div id="ios-overlay"><button onclick="requestAccess()">INICIAR NIVEL</button></div>
 
 <div id="modeLabel">Detectando...</div>
 
@@ -46,39 +36,18 @@
 <div class="sub" id="percent">0 %</div>
 <div class="sub" id="ratio">1 : ∞</div>
 
-<div id="version">v1.7</div>
+<div id="version">v1.8</div>
 
 <script>
-let mode = "auto";
 let currentMode = "level";
 const bubble = document.getElementById("bubble");
-const value = document.getElementById("value");
-const percent = document.getElementById("percent");
-const ratio = document.getElementById("ratio");
+const valDisp = document.getElementById("value");
+const pctDisp = document.getElementById("percent");
+const ratDisp = document.getElementById("ratio");
 const label = document.getElementById("modeLabel");
 const circle = document.getElementById("circle");
 const dot = document.getElementById("dot");
 const levelUI = document.getElementById("levelUI");
-const cam = document.getElementById("camera");
-const line = document.getElementById("line");
-
-let smoothG = 0;
-let smoothB = 0;
-const MAX_RANGE = 20;
-
-function setManualMode(m) {
-    mode = m;
-    cam.style.display = "none";
-    line.style.display = "none";
-}
-
-function startCamera() {
-    mode = "camera";
-    cam.style.display = "block";
-    line.style.display = "block";
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-        .then(stream => cam.srcObject = stream);
-}
 
 function requestAccess() {
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
@@ -92,74 +61,61 @@ function requestAccess() {
 }
 
 function update(e) {
-    if (e.beta == null || e.gamma == null) return;
+    let b = e.beta;  // Inclinación adelante/atrás
+    let g = e.gamma; // Inclinación lateral
 
-    // Suavizado para evitar vibraciones
-    smoothG = smoothG * 0.8 + e.gamma * 0.2;
-    smoothB = smoothB * 0.8 + e.beta * 0.2;
-
-    if (mode === "camera") {
-        display(smoothG);
-        line.style.background = Math.abs(smoothG) < 0.2 ? "#00ff00" : "red";
-        return;
+    // 1. DETECCIÓN DE MODO (Basado en la posición física real)
+    // Si el móvil está casi plano (boca arriba) -> MODO SUPERFICIE
+    if (Math.abs(b) < 30) {
+        currentMode = "circle";
+    } 
+    // Si el móvil está de pie (vertical) o apoyado en el canto -> MODO NIVEL
+    else {
+        currentMode = "level";
     }
 
-    // Lógica de Detección Blindada
-    if (mode === "auto") {
-        let absB = Math.abs(smoothB);
-        
-        // MODO SUPERFICIE: Solo si está casi plano (boca arriba o boca abajo)
-        if (absB < 25 || absB > 155) {
-            currentMode = "circle";
-        } 
-        // MODO PLOMADA: Si está muy vertical (de pie por el puerto de carga)
-        else if (absB > 65 && absB < 115) {
-            currentMode = "plumb";
-        } 
-        // MODO NIVEL: Apoyado sobre el canto largo
-        else {
-            currentMode = "level";
-        }
-    }
-
-    if (currentMode === "level" || currentMode === "plumb") {
+    if (currentMode === "level") {
         levelUI.style.display = "block";
         circle.style.display = "none";
-        label.innerText = currentMode === "level" ? "Nivel de Canto" : "Plomada Vertical";
+        label.innerText = (Math.abs(b) > 75) ? "Plomada Vertical" : "Nivel de Canto";
         
-        // Error de 90 corregido: En vertical usamos gamma y forzamos que si el 
-        // móvil se acuesta, no intente compensar el ángulo.
-        display(smoothG);
-        let pos = 50 + (smoothG / MAX_RANGE) * 45;
+        // El ángulo que nos interesa es el giro lateral (gamma)
+        // Pero cuando b > 90 (boca abajo), los ejes se invierten en algunos navegadores
+        let angle = g;
+        
+        // Dibujar burbuja
+        let pos = 50 + (angle / 20) * 45;
         pos = Math.max(5, Math.min(95, pos));
-        bubble.style.left = `calc(${pos}% - 26px)`;
+        bubble.style.left = `calc(${pos}% - 25px)`;
+        
+        render(angle);
     } 
-    else if (currentMode === "circle") {
+    else {
         levelUI.style.display = "none";
         circle.style.display = "block";
-        label.innerText = "Nivel de Superficie";
+        label.innerText = "Superficie (Plano)";
         
-        let px = 112.5 + (smoothG / MAX_RANGE) * 112.5;
-        let py = 112.5 + (smoothB / MAX_RANGE) * 112.5;
-        dot.style.left = Math.max(0, Math.min(225, px)) + "px";
-        dot.style.top = Math.max(0, Math.min(225, py)) + "px";
+        // En superficie, mostramos la desviación total
+        let px = 107.5 + (g / 20) * 107.5;
+        let py = 107.5 + (b / 20) * 107.5;
+        dot.style.left = Math.max(0, Math.min(215, px)) + "px";
+        dot.style.top = Math.max(0, Math.min(215, py)) + "px";
         
-        display(Math.sqrt(smoothG*smoothG + smoothB*smoothB));
+        render(Math.sqrt(g*g + b*b));
     }
 }
 
-function display(a) {
+function render(a) {
     let ang = Math.abs(a);
-    // Limpieza de valores fantasma de 90 grados
-    if (ang > 80 && currentMode !== "circle") ang = 90 - ang;
-
-    value.innerText = ang.toFixed(2) + "°";
+    valDisp.innerText = ang.toFixed(2) + "°";
+    valDisp.style.color = ang < 0.2 ? "#00ff00" : "#fff";
+    
     let rad = ang * Math.PI / 180;
     let p = Math.tan(rad) * 100;
-    percent.innerText = ang > 88 ? "--- %" : p.toFixed(1) + " %";
+    pctDisp.innerText = ang > 85 ? "--- %" : p.toFixed(1) + " %";
+    
     let r = 1 / Math.tan(rad);
-    ratio.innerText = (ang > 88 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
-    value.style.color = ang < 0.2 ? "#00ff00" : "white";
+    ratDisp.innerText = (ang > 85 || ang < 0.05) ? "1 : ∞" : "1 : " + r.toFixed(1);
 }
 
 if (typeof DeviceOrientationEvent.requestPermission === 'function') {
